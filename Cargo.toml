@@ -1,0 +1,13 @@
+[package]
+name = "serde_builder"
+version = "0.1.0"
+license = "MIT"
+edition = "2021"
+authors = ["Azad Ahmadi <azadahmadi@mailo.com>"]
+
+[lib]
+proc-macro = true
+
+[dependencies]
+syn = "1.0.107"
+quote = "1.0.23"
