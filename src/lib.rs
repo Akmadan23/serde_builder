@@ -6,7 +6,9 @@ use syn::{
     Attribute,
     Data,
     DeriveInput,
+    Field,
     Ident,
+    Type,
 };
 
 trait EqStr {
@@ -22,7 +24,7 @@ impl EqStr for Ident {
 #[proc_macro_derive(SerdeBuilder, attributes(builder_derive))]
 pub fn derive(input: TokenStream) -> TokenStream {
     let DeriveInput { ident, data, vis, attrs, .. } = parse_macro_input!(input);
-    let (mut field_names, mut types) = (vec![], vec![]);
+    let (mut field_names, mut types, mut build_instructions) = (vec![], vec![], vec![]);
     let mut derives = quote!();
     let ident_builder = format_ident!("{}Builder", ident);
 
@@ -39,23 +41,39 @@ pub fn derive(input: TokenStream) -> TokenStream {
         }
     }
 
-    for f in s.fields {
-        field_names.push(f.ident.unwrap());
-        types.push(f.ty);
+    for Field { ident: f_ident, ty, .. } in s.fields {
+        let Type::Path(f_type) = ty else {
+            panic!("Type not supported");
+        };
+
+        let Some(f_type_last_seg) = f_type.path.segments.last() else {
+            panic!("Unable to parse type");
+        };
+
+        let [new_type, build_ins] = if f_type_last_seg.ident.eq_str("Option") {[
+            quote! { #f_type },
+            quote! { self.#f_ident }
+        ]} else {[
+            quote! { Option<#f_type> },
+            quote! { self.#f_ident.unwrap_or(#ident::default().#f_ident) }
+        ]};
+
+        types.push(new_type);
+        field_names.push(f_ident.expect("Unable to read field identifier"));
+        build_instructions.push(build_ins);
     }
 
     quote! {
         #derives
         #vis struct #ident_builder {
-            // TODO: if type is already `Option<_>` don't manipulate it
-            #(pub #field_names: Option<#types>),*
+            #(pub #field_names: #types),*
         }
 
         impl #ident_builder {
             pub fn build(self) -> #ident {
                 #ident {
                     // TODO: implement different build instructions for nested builder structs
-                    #(#field_names: self.#field_names.unwrap_or(#ident::default().#field_names)),*
+                    #(#field_names: #build_instructions),*
                 }
             }
         }
