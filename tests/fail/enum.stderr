@@ -1,0 +1,7 @@
+error: proc-macro derive panicked
+ --> tests/fail/enum.rs:3:10
+  |
+3 | #[derive(SerdeBuilder)]
+  |          ^^^^^^^^^^^^
+  |
+  = help: message: SerdeBuilder only works for structs.

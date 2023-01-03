@@ -79,3 +79,15 @@ pub fn derive(input: TokenStream) -> TokenStream {
         }
     }.into()
 }
+
+#[cfg(test)]
+mod test {
+    use trybuild::TestCases;
+
+    #[test]
+    fn trybuild_tests() {
+        let t = TestCases::new();
+        t.pass("tests/pass/*.rs");
+        t.compile_fail("tests/fail/*.rs");
+    }
+}
