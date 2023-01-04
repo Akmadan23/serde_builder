@@ -1,25 +1,23 @@
-use proc_macro::TokenStream;
-use quote::{ quote, format_ident };
+mod utils;
 
-use syn::{
-    parse_macro_input,
-    Attribute,
-    Data,
-    DeriveInput,
-    Field,
-    Ident,
-    Type,
-};
+use {
+    utils::EqStr,
+    proc_macro::TokenStream,
 
-trait EqStr {
-    fn eq_str(&self, s: &str) -> bool;
-}
+    quote::{
+        format_ident,
+        quote,
+    },
 
-impl EqStr for Ident {
-    fn eq_str(&self, s: &str) -> bool {
-        *self == Self::new(s, self.span())
+    syn::{
+        parse_macro_input,
+        Attribute,
+        Data,
+        DeriveInput,
+        Field,
+        Type,
     }
-}
+};
 
 #[proc_macro_derive(SerdeBuilder, attributes(builder_derive, use_builder))]
 pub fn derive(input: TokenStream) -> TokenStream {
