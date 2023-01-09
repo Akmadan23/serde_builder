@@ -15,20 +15,33 @@ use {
         Data,
         DeriveInput,
         Field,
+        GenericParam,
         Type,
     }
 };
 
 #[proc_macro_derive(SerdeBuilder, attributes(builder_derive, use_builder))]
 pub fn derive(input: TokenStream) -> TokenStream {
-    let DeriveInput { ident, data, vis, attrs, .. } = parse_macro_input!(input);
+    let DeriveInput { ident, data, vis, attrs, generics, .. } = parse_macro_input!(input);
     let (mut field_names, mut types, mut build_instructions) = (vec![], vec![], vec![]);
-    let mut derives = quote!();
+    let (mut derives, mut where_clause, mut generic_type_annotations) = (quote!(), quote!(), quote!());
     let ident_builder = format_ident!("{}Builder", ident);
 
     let Data::Struct(s) = data else {
         panic!("SerdeBuilder only works for structs.");
     };
+
+    if generics.params.len() > 0 {
+        let generic_params = generics.params.clone();
+
+        let generic_types: Vec<_> = generic_params
+            .iter()
+            .filter(|p| matches!(p, GenericParam::Type(_)))
+            .collect();
+
+        generic_type_annotations = quote! { #generic_params };
+        where_clause = quote! { where #(#generic_types: Default),* };
+    }
 
     for Attribute { path, tokens, .. } in attrs {
         let ident = path.get_ident().expect("Unexpected attribute.");
@@ -81,7 +94,7 @@ pub fn derive(input: TokenStream) -> TokenStream {
             quote! { self.#f_ident }
         ]} else {[
             quote! { Option<#f_type> },
-            quote! { self.#f_ident.unwrap_or(#ident::default().#f_ident) }
+            quote! { self.#f_ident.unwrap_or(#ident::<#generic_type_annotations>::default().#f_ident) }
         ]};
 
         types.push(new_type);
@@ -91,12 +104,12 @@ pub fn derive(input: TokenStream) -> TokenStream {
 
     quote! {
         #derives
-        #vis struct #ident_builder {
+        #vis struct #ident_builder #generics {
             #(pub #field_names: #types),*
         }
 
-        impl #ident_builder {
-            pub fn build(self) -> #ident {
+        impl #generics #ident_builder #generics #where_clause {
+            pub fn build(self) -> #ident #generics {
                 #ident {
                     #(#field_names: #build_instructions),*
                 }
